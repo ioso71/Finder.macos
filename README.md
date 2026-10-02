@@ -1,6 +1,6 @@
 # Finder — Nextpad++ macOS Plugin
 
-**Version:** 1.3.1 — see [CHANGELOG.md](CHANGELOG.md) for the version history.
+**Version:** 1.4.0 — see [CHANGELOG.md](CHANGELOG.md) for the version history.
 
 A sidebar panel for Nextpad++ (macOS) that shows a folder tree + file list of the real filesystem and offers Finder-style actions (reveal in Finder, open in Terminal, rename, move to Trash, copy path, new file/folder, favorites). 
 It's the macOS counterpart to the classic Windows plugin npp-explorer-plugin, built on top of the native Nextpad++ plugin API for macOS (`NppPluginInterfaceMac.h`, see `vendor/README.md`).
@@ -78,6 +78,7 @@ Expected output: `[PASS] Finder — "Finder" (3 menu items)` with the three menu
 - "Reveal Current File in macOS Finder" — opens the real Finder directly, without going through the panel.
 - Context menu: Open, Reveal in Finder, Open in Terminal, New Folder, New File, Rename, Duplicate, Move to Trash, Copy Path/Name, Add to Favorites.
 - Search/filter field for the file list.
+- Toolbar toggle to show/hide hidden (dot-prefixed) files and folders in the tree and file list; remembered between sessions. "Locate Current File" enables it automatically when the file is inside a hidden folder.
 - Last root path and favorites are persisted between sessions (`NPPM_GETPLUGINSCONFIGDIR`/JSON file, no NSUserDefaults suite conflict
   with other plugins).
 - Multilingual (German/English): menu items, toolbar tooltips, column titles, context menu, and dialogs follow the host's language selection (`NSUserDefaults` key `"language"`) and switch live, without a restart — see `src/FinderLocalization.h/.mm`.

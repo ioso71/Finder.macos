@@ -7,6 +7,24 @@ Version scheme: `XX.Y.ZZ` (Major.Minor.Patch)
 - **Y** (Minor): medium updates / new features
 - **XX** (Major): large breaking changes
 
+## [1.4.0] — 2026-10-02
+
+### Added
+- "Show/Hide Hidden Files" toggle button in the panel toolbar (eye icon).
+  When enabled, dot-prefixed files and folders are listed in both the
+  folder tree and the file list. The setting is persisted between sessions
+  (`showHiddenFiles` in `finder-plugin-prefs.json`) and defaults to off.
+  Fixes nextpad-plus-plus-macos issue #364.
+
+### Changed
+- "Locate Current File in Finder Panel" now turns on "Show Hidden Files"
+  automatically when the active file lives inside a hidden folder; before,
+  the tree stopped at the last visible parent and never showed the file.
+- Main toolbar icon (`resources/toolbar.png` / `toolbar_dark.png`) replaced
+  with a closed-folder glyph: charcoal outline with a pale blue fill in the
+  light variant, light-grey outline with a muted blue fill in the dark
+  variant. 512×512 RGBA, transparent background.
+
 ## [1.3.1] — 2026-08-07
 
 ### Reverted

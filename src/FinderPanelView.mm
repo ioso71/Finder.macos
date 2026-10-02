@@ -18,17 +18,17 @@ static BOOL FinderIsHiddenName(NSString *name) {
     return name.length > 0 && [name characterAtIndex:0] == '.';
 }
 
-/// Folders directly inside `dir`, hidden entries excluded, sorted
+/// Folders directly inside `dir`, hidden entries excluded unless `showHidden`, sorted
 /// case-insensitively by name. Synchronous — callers keep scope to one
 /// directory at a time so this stays fast.
-static NSArray<NSString *> *FinderSubdirectories(NSString *dir) {
+static NSArray<NSString *> *FinderSubdirectories(NSString *dir, BOOL showHidden) {
     NSFileManager *fm = [NSFileManager defaultManager];
     NSArray<NSString *> *names = [fm contentsOfDirectoryAtPath:dir error:nil];
     if (!names) return @[];
 
     NSMutableArray<NSString *> *result = [NSMutableArray array];
     for (NSString *name in names) {
-        if (FinderIsHiddenName(name)) continue;
+        if (!showHidden && FinderIsHiddenName(name)) continue;
         NSString *full = [dir stringByAppendingPathComponent:name];
         BOOL isDir = NO;
         if ([fm fileExistsAtPath:full isDirectory:&isDir] && isDir) {
@@ -42,8 +42,8 @@ static NSArray<NSString *> *FinderSubdirectories(NSString *dir) {
 }
 
 /// All entries (files + folders) directly inside `dir`, folders first, then
-/// files, both alphabetical; hidden entries excluded.
-static NSArray<NSString *> *FinderListEntries(NSString *dir) {
+/// files, both alphabetical; hidden entries excluded unless `showHidden`.
+static NSArray<NSString *> *FinderListEntries(NSString *dir, BOOL showHidden) {
     NSFileManager *fm = [NSFileManager defaultManager];
     NSArray<NSString *> *names = [fm contentsOfDirectoryAtPath:dir error:nil];
     if (!names) return @[];
@@ -51,7 +51,7 @@ static NSArray<NSString *> *FinderListEntries(NSString *dir) {
     NSMutableArray<NSString *> *folders = [NSMutableArray array];
     NSMutableArray<NSString *> *files = [NSMutableArray array];
     for (NSString *name in names) {
-        if (FinderIsHiddenName(name)) continue;
+        if (!showHidden && FinderIsHiddenName(name)) continue;
         NSString *full = [dir stringByAppendingPathComponent:name];
         BOOL isDir = NO;
         if (![fm fileExistsAtPath:full isDirectory:&isDir]) continue;
@@ -80,6 +80,7 @@ static NSArray<NSString *> *FinderListEntries(NSString *dir) {
     NSButton *_upButton;
     NSButton *_homeButton;
     NSButton *_locateButton;
+    NSButton *_hiddenButton;
     NSButton *_newFolderButton;
     NSButton *_newFileButton;
     NSSearchField *_searchField;
@@ -136,10 +137,12 @@ static NSArray<NSString *> *FinderListEntries(NSString *dir) {
     _upButton = [self toolbarButtonWithSymbol:@"chevron.up" tooltip:FDLoc(@"Übergeordneter Ordner", @"Parent Folder") action:@selector(goUp:)];
     _homeButton = [self toolbarButtonWithSymbol:@"house" tooltip:FDLoc(@"Home-Verzeichnis", @"Home Directory") action:@selector(goHome:)];
     _locateButton = [self toolbarButtonWithSymbol:@"location.circle" tooltip:FDLoc(@"Aktuelle Datei anzeigen", @"Locate Current File") action:@selector(locateCurrentFile:)];
+    _hiddenButton = [self toolbarButtonWithSymbol:@"eye.slash" tooltip:@"" action:@selector(toggleShowHidden:)];
+    [self updateHiddenButton];
     _newFolderButton = [self toolbarButtonWithSymbol:@"folder.badge.plus" tooltip:FDLoc(@"Neuer Ordner", @"New Folder") action:@selector(createNewFolder:)];
     _newFileButton = [self toolbarButtonWithSymbol:@"doc.badge.plus" tooltip:FDLoc(@"Neue Datei", @"New File") action:@selector(createNewFile:)];
 
-    for (NSButton *b in @[_upButton, _homeButton, _locateButton, _newFolderButton, _newFileButton]) {
+    for (NSButton *b in @[_upButton, _homeButton, _locateButton, _hiddenButton, _newFolderButton, _newFileButton]) {
         [toolbar addSubview:b];
     }
 
@@ -151,9 +154,9 @@ static NSArray<NSString *> *FinderListEntries(NSString *dir) {
     _searchField.action = @selector(searchChanged:);
     [toolbar addSubview:_searchField];
 
-    NSDictionary *views = NSDictionaryOfVariableBindings(_rootPopUp, _upButton, _homeButton, _locateButton, _newFolderButton, _newFileButton, _searchField);
+    NSDictionary *views = NSDictionaryOfVariableBindings(_rootPopUp, _upButton, _homeButton, _locateButton, _hiddenButton, _newFolderButton, _newFileButton, _searchField);
     [toolbar addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:
-        @"H:|-4-[_rootPopUp(>=90)]-4-[_upButton(24)]-2-[_homeButton(24)]-2-[_locateButton(24)]-8-[_newFolderButton(28)]-2-[_newFileButton(28)]-8-[_searchField(>=90)]-4-|"
+        @"H:|-4-[_rootPopUp(>=90)]-4-[_upButton(24)]-2-[_homeButton(24)]-2-[_locateButton(24)]-2-[_hiddenButton(24)]-8-[_newFolderButton(28)]-2-[_newFileButton(28)]-8-[_searchField(>=90)]-4-|"
         options:NSLayoutFormatAlignAllCenterY metrics:nil views:views]];
     [toolbar addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"V:|-4-[_rootPopUp]-4-|"
         options:0 metrics:nil views:views]];
@@ -297,6 +300,7 @@ static NSArray<NSString *> *FinderListEntries(NSString *dir) {
     _upButton.toolTip = FDLoc(@"Übergeordneter Ordner", @"Parent Folder");
     _homeButton.toolTip = FDLoc(@"Home-Verzeichnis", @"Home Directory");
     _locateButton.toolTip = FDLoc(@"Aktuelle Datei anzeigen", @"Locate Current File");
+    [self updateHiddenButton];
     _newFolderButton.toolTip = FDLoc(@"Neuer Ordner", @"New Folder");
     _newFileButton.toolTip = FDLoc(@"Neue Datei", @"New File");
     _searchField.placeholderString = FDLoc(@"Filter", @"Filter");
@@ -316,6 +320,37 @@ static NSArray<NSString *> *FinderListEntries(NSString *dir) {
     _outlineView.menu.delegate = self;
     _fileTable.menu = [self buildContextMenuForTable:YES];
     _fileTable.menu.delegate = self;
+}
+
+#pragma mark - Hidden files
+
+/// Syncs the toggle button's icon and tooltip with the persisted state. The
+/// icon shows the current state (eye = hidden files visible); the tooltip
+/// names the action a click performs.
+- (void)updateHiddenButton {
+    BOOL show = [FinderPreferences shared].showHiddenFiles;
+    NSString *tooltip = show ? FDLoc(@"Versteckte Dateien ausblenden", @"Hide Hidden Files")
+                             : FDLoc(@"Versteckte Dateien anzeigen", @"Show Hidden Files");
+    NSImage *img = [NSImage imageWithSystemSymbolName:(show ? @"eye" : @"eye.slash")
+                             accessibilityDescription:tooltip];
+    if (img) {
+        img = [img imageWithSymbolConfiguration:
+            [NSImageSymbolConfiguration configurationWithPointSize:13 weight:NSFontWeightRegular]];
+    }
+    _hiddenButton.image = img;
+    _hiddenButton.toolTip = tooltip;
+}
+
+- (void)toggleShowHidden:(id)sender {
+    FinderPreferences *prefs = [FinderPreferences shared];
+    prefs.showHiddenFiles = !prefs.showHiddenFiles;
+    [prefs save];
+    [self updateHiddenButton];
+
+    [_childCache removeAllObjects];
+    [self reloadOutline];
+    [self reloadListForPath:_currentListPath];
+    [self expandTreeToDirectory:_currentListPath];
 }
 
 #pragma mark - Outline reload helper
@@ -424,6 +459,24 @@ static NSArray<NSString *> *FinderListEntries(NSString *dir) {
 
     NSString *dirToShow = isDir ? path : [path stringByDeletingLastPathComponent];
 
+    // The target lives inside a hidden folder (e.g. ~/.config/...) but hidden
+    // entries are filtered out, so the tree could never reach it. Switch the
+    // option on (and persist it, like a manual toggle) rather than silently
+    // stopping at the last visible ancestor.
+    if (![FinderPreferences shared].showHiddenFiles) {
+        NSString *relativeToRoot = [dirToShow hasPrefix:_rootPath] ? [dirToShow substringFromIndex:_rootPath.length] : dirToShow;
+        for (NSString *comp in relativeToRoot.pathComponents) {
+            if (FinderIsHiddenName(comp)) {
+                [FinderPreferences shared].showHiddenFiles = YES;
+                [[FinderPreferences shared] save];
+                [self updateHiddenButton];
+                [_childCache removeAllObjects];
+                [self reloadOutline];
+                break;
+            }
+        }
+    }
+
     if (![dirToShow hasPrefix:_rootPath]) {
         // Target isn't reachable from the current root — fall back to
         // "Computer" (filesystem root) so the tree can always reach it.
@@ -459,7 +512,7 @@ static NSArray<NSString *> *FinderListEntries(NSString *dir) {
 
         NSArray<NSString *> *siblings = parentItem ? [self childrenOfItem:parentItem]
                                                     : [self childrenOfItem:nil];
-        if (![siblings containsObject:runningPath]) return; // e.g. hidden folder — stop here
+        if (![siblings containsObject:runningPath]) return; // e.g. hidden folder while "Show Hidden Files" is off — stop here
 
         [_outlineView expandItem:parentItem];
         parentItem = runningPath;
@@ -479,7 +532,7 @@ static NSArray<NSString *> *FinderListEntries(NSString *dir) {
     NSString *dir = item ?: _rootPath;
     NSArray<NSString *> *cached = _childCache[dir];
     if (cached) return cached;
-    NSArray<NSString *> *children = FinderSubdirectories(dir);
+    NSArray<NSString *> *children = FinderSubdirectories(dir, [FinderPreferences shared].showHiddenFiles);
     _childCache[dir] = children;
     return children;
 }
@@ -538,7 +591,7 @@ static NSArray<NSString *> *FinderListEntries(NSString *dir) {
 
 - (void)reloadListForPath:(NSString *)path {
     _currentListPath = path;
-    _currentListEntries = FinderListEntries(path);
+    _currentListEntries = FinderListEntries(path, [FinderPreferences shared].showHiddenFiles);
     [self applySearchFilter];
 }
 

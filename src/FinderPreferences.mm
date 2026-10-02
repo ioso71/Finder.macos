@@ -3,11 +3,13 @@
 static NSString *const kPrefsFileName = @"finder-plugin-prefs.json";
 static NSString *const kKeyLastRootPath = @"lastRootPath";
 static NSString *const kKeyFavoritePaths = @"favoritePaths";
+static NSString *const kKeyShowHiddenFiles = @"showHiddenFiles";
 
 @implementation FinderPreferences {
     NSString *_configDir;
     NSString *_lastRootPath;
     NSArray<NSString *> *_favoritePaths;
+    BOOL _showHiddenFiles;
     BOOL _configured;
 }
 
@@ -71,6 +73,11 @@ static NSString *const kKeyFavoritePaths = @"favoritePaths";
         _lastRootPath = [root copy];
     }
 
+    id showHidden = dict[kKeyShowHiddenFiles];
+    if ([showHidden isKindOfClass:[NSNumber class]]) {
+        _showHiddenFiles = [showHidden boolValue];
+    }
+
     NSArray *favs = dict[kKeyFavoritePaths];
     if ([favs isKindOfClass:[NSArray class]]) {
         NSMutableArray<NSString *> *cleaned = [NSMutableArray array];
@@ -90,6 +97,7 @@ static NSString *const kKeyFavoritePaths = @"favoritePaths";
     NSDictionary *dict = @{
         kKeyLastRootPath: _lastRootPath ?: NSHomeDirectory(),
         kKeyFavoritePaths: _favoritePaths ?: @[],
+        kKeyShowHiddenFiles: @(_showHiddenFiles),
     };
 
     NSError *error = nil;
@@ -113,6 +121,14 @@ static NSString *const kKeyFavoritePaths = @"favoritePaths";
 - (void)setLastRootPath:(NSString *)lastRootPath {
     if (lastRootPath.length == 0) return;
     _lastRootPath = [lastRootPath copy];
+}
+
+- (BOOL)showHiddenFiles {
+    return _showHiddenFiles;
+}
+
+- (void)setShowHiddenFiles:(BOOL)showHiddenFiles {
+    _showHiddenFiles = showHiddenFiles;
 }
 
 - (NSArray<NSString *> *)favoritePaths {

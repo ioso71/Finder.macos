@@ -15,7 +15,7 @@
  *   - Feature / medium change → minor (Y):   1.0.10 → 1.1.0
  *   - Breaking change         → major (XX):  1.9.0 → 2.0.0
  * ───────────────────────────────────────────────────────────────────────── */
-#define FINDER_PLUGIN_VERSION "1.3.1"
+#define FINDER_PLUGIN_VERSION "1.4.0"
 
 #import <Cocoa/Cocoa.h>
 #include <string.h>
