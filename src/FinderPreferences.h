@@ -22,6 +22,10 @@ NS_ASSUME_NONNULL_BEGIN
 /// User-pinned favorite folders (absolute paths), shown above the volume list.
 @property (nonatomic, copy) NSArray<NSString *> *favoritePaths;
 
+/// Whether dot-prefixed ("hidden") files and folders are shown in the tree
+/// and file list. Defaults to NO.
+@property (nonatomic, assign) BOOL showHiddenFiles;
+
 - (void)addFavoritePath:(NSString *)path;
 - (void)removeFavoritePath:(NSString *)path;
 
